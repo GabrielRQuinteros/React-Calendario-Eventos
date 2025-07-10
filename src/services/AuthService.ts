@@ -6,7 +6,7 @@ import UserServiceInstance from './UserService';
 
 export class AuthService {
   static ACCESS_TOKEN_DURATION: jwt.SignOptions['expiresIn'] = '2m';
-  static REFRESH_TOKEN_DURATION: jwt.SignOptions['expiresIn'] = '7d';
+  static REFRESH_TOKEN_DURATION: jwt.SignOptions['expiresIn'] = '5m';
   static REFRESH_TOKEN_DURATION_DAYS = 7;
 
   async register(data: { name: string; email: string; password: string }): Promise<IUser> {
@@ -32,7 +32,6 @@ export class AuthService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + AuthService.REFRESH_TOKEN_DURATION_DAYS);
-
     await RefreshTokenModel.create({
       userId: user._id,
       token: refreshToken,

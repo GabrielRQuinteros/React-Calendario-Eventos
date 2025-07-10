@@ -4,6 +4,7 @@ import userRoutes from './routes/UsersRouter';
 import authRoutes from './routes/AuthRouter';
 import calendarEventRoutes from './routes/CalendarEventRouter';
 import dotenv from 'dotenv';
+import { initRefreshTokenCleanUp } from './cron-jobs/CleanRefreshTokensFromDB';
 
 dotenv.config();
 
@@ -15,6 +16,9 @@ mongoose.connect('mongodb://localhost:27017/calendar-express-backend')
   .then(() => console.log('Conectado a MongoDB'))
   .catch(err => console.error('ERROR: -> Error de conexión con MongoDB', err));
 
+// Inicio el Cron-Job de limpieza de Refresh-Tokens
+initRefreshTokenCleanUp();
+
 // Middleware para que parse el body de las request a un JSON directamente.
 app.use(express.json());
 
@@ -24,12 +28,11 @@ app.use(express.json());
 // Servir archivos estáticos del frontend
 app.use(express.static('public'));
 
-
 // Rutas a Controladores
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/events', calendarEventRoutes);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}/`);
+  console.log(`Servidor corriendo en http://localhost:${PORT}/`);
 });
