@@ -18,6 +18,9 @@ mongoose.connect('mongodb://localhost:27017/calendar-express-backend')
 // Middleware para que parse el body de las request a un JSON directamente.
 app.use(express.json());
 
+/// NOTA: --> Express no incluye un middleware nativo para procesar multipart/form-data (archivos)
+/// Para usarlos necesita una librería externa. Esta es "multer". --> npm install multer
+
 // Servir archivos estáticos del frontend
 app.use(express.static('public'));
 

@@ -1,6 +1,5 @@
 import { RequestHandler } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import jwt from 'jsonwebtoken';
 import { sendResponse } from '../responses/helpers/SendDefaultResponse';
 import UserServiceInstance from '../services/UserService';
 import AuthServiceInstance from '../services/AuthService';
@@ -44,9 +43,9 @@ export class AuthController {
 
   login: RequestHandler = async (req, res) => {
     const { email, password } = req.body;
-    const user = await AuthServiceInstance.login(email, password);
+    const result = await AuthServiceInstance.login(email, password);
 
-    if (!user) {
+    if (!result) {
       sendResponse(res, {
         success: false,
         message: 'Credenciales inválidas',
@@ -55,12 +54,7 @@ export class AuthController {
       return;
     }
 
-    // Generar JWT
-    const token = jwt.sign(
-      { uid: user._id, name: user.name, email: user.email },
-      process.env.JWT_SECRET || 'default_secret',
-      { expiresIn: '12h' }
-    );
+    const { user, accessToken, refreshToken } = result;
 
     sendResponse(res, {
       success: true,
@@ -71,30 +65,31 @@ export class AuthController {
           name: user.name,
           email: user.email
         },
-        token
+        accessToken,
+        refreshToken
       },
       statusCode: StatusCodes.OK
     });
   };
 
   refreshToken: RequestHandler = async (req, res) => {
-    const authHeader = req.header('authorization') || req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
       sendResponse(res, {
         success: false,
-        message: 'No se envió el token Bearer',
+        message: 'No se envió el refresh token',
         statusCode: StatusCodes.UNAUTHORIZED
       });
       return;
     }
 
-    const token = authHeader.replace('Bearer ', '').trim();
-    const result = await AuthServiceInstance.refreshToken(token);
+    const result = await AuthServiceInstance.refreshToken(refreshToken);
 
     if (!result) {
       sendResponse(res, {
         success: false,
-        message: 'Token inválido',
+        message: 'Refresh token inválido o expirado',
         statusCode: StatusCodes.UNAUTHORIZED
       });
       return;
@@ -107,6 +102,29 @@ export class AuthController {
       statusCode: StatusCodes.OK
     });
   };
+
+
+  logout: RequestHandler = async (req, res) => {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      sendResponse(res, {
+        success: false,
+        message: 'No se envió el refresh token',
+        statusCode: StatusCodes.BAD_REQUEST
+      });
+      return;
+    }
+
+    const success = await AuthServiceInstance.logout(refreshToken);
+
+    sendResponse(res, {
+      success,
+      message: success ? 'Logout exitoso' : 'Token no encontrado',
+      statusCode: StatusCodes.OK
+    });
+  };
+
 
 }
 
