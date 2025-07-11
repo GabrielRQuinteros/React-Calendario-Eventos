@@ -9,7 +9,7 @@ export class AuthController {
     const { name, email, password } = req.body;
     try {
 
-      const userWithEmailInBD = UserServiceInstance.getUserByEmail(email);
+      const userWithEmailInBD = await UserServiceInstance.getUserByEmail(email);
       if( !!userWithEmailInBD ) {
           sendResponse(res, {
                               success: false,
@@ -106,7 +106,6 @@ export class AuthController {
 
   logout: RequestHandler = async (req, res) => {
     const { refreshToken } = req.body;
-
     if (!refreshToken) {
       sendResponse(res, {
         success: false,
@@ -116,7 +115,10 @@ export class AuthController {
       return;
     }
 
-    const success = await AuthServiceInstance.logout(refreshToken);
+    const authHeader = req.header('Authorization');
+    const accessToken = authHeader!.replace('Bearer ', '').trim();
+
+    const success = await AuthServiceInstance.logout(accessToken, refreshToken);
 
     sendResponse(res, {
       success,

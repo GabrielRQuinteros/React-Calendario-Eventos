@@ -4,20 +4,22 @@ import userRoutes from './routes/UsersRouter';
 import authRoutes from './routes/AuthRouter';
 import calendarEventRoutes from './routes/CalendarEventRouter';
 import dotenv from 'dotenv';
-import { initRefreshTokenCleanUp } from './cron-jobs/CleanRefreshTokensFromDB';
+import { initRefreshAndAccessTokenCleanUp } from './cron-jobs/CleanRefreshTokensFromDB';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const mongoDBUrl: string = process.env.MONGO_URL_CONNECTION!;
+
 // Conexión a MongoDB
-mongoose.connect('mongodb://localhost:27017/calendar-express-backend')
+mongoose.connect( mongoDBUrl )
   .then(() => console.log('Conectado a MongoDB'))
   .catch(err => console.error('ERROR: -> Error de conexión con MongoDB', err));
 
 // Inicio el Cron-Job de limpieza de Refresh-Tokens
-initRefreshTokenCleanUp();
+initRefreshAndAccessTokenCleanUp();
 
 // Middleware para que parse el body de las request a un JSON directamente.
 app.use(express.json());

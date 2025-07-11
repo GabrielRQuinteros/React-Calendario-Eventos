@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IRefreshToken extends Document {
+export interface IAccessToken extends Document {
   userId: mongoose.Types.ObjectId;
   token: string;
   createdAt: Date;
@@ -8,7 +8,7 @@ export interface IRefreshToken extends Document {
   revoked: boolean;
 }
 
-const RefreshTokenSchema = new Schema<IRefreshToken>({
+const AccessTokenSchema = new Schema<IAccessToken>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   token: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
@@ -16,4 +16,4 @@ const RefreshTokenSchema = new Schema<IRefreshToken>({
   revoked: { type: Boolean, default: false }
 });
 
-export const RefreshTokenModel = mongoose.model<IRefreshToken>('RefreshToken', RefreshTokenSchema);
+export const AccessTokenModel = mongoose.model<IAccessToken>('AccessToken', AccessTokenSchema);

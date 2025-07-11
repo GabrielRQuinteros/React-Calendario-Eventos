@@ -2,12 +2,15 @@ import jwt from 'jsonwebtoken';
 import { IUser, UserModel } from '../models/User';
 import { RefreshTokenModel } from '../models/RefreshToken';
 import UserServiceInstance from './UserService';
+import { AccessTokenModel } from '../models/AccessToken';
 
 
 export class AuthService {
-  static ACCESS_TOKEN_DURATION: jwt.SignOptions['expiresIn'] = '2m';
+  static ACCESS_TOKEN_DURATION: jwt.SignOptions['expiresIn'] = '8h';
   static REFRESH_TOKEN_DURATION: jwt.SignOptions['expiresIn'] = '7d';
   static REFRESH_TOKEN_DURATION_DAYS = 7;
+  static ACCESS_TOKEN_DURATION_MS = 8 * 60 * 60 * 1000;
+
 
   async register(data: { name: string; email: string; password: string }): Promise<IUser> {
     const user = new UserModel(data);
@@ -30,13 +33,24 @@ export class AuthService {
       { expiresIn: AuthService.REFRESH_TOKEN_DURATION }
     );
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + AuthService.REFRESH_TOKEN_DURATION_DAYS);
+    const refreshTokenExpiresAt = new Date();
+    refreshTokenExpiresAt.setDate(refreshTokenExpiresAt.getDate() + AuthService.REFRESH_TOKEN_DURATION_DAYS);
+
+    const accessTokenExpiresAt = new Date(Date.now() + AuthService.ACCESS_TOKEN_DURATION_MS );
+    
     await RefreshTokenModel.create({
-      userId: user._id,
-      token: refreshToken,
-      expiresAt
-    });
+        userId: user._id,
+        token: refreshToken,
+        expiresAt: refreshTokenExpiresAt,
+        revoked: false
+      });
+
+    await AccessTokenModel.create({
+        userId: user._id,
+        token: accessToken,
+        expiresAt: accessTokenExpiresAt,
+        revoked: false
+      });
 
     return { user, accessToken, refreshToken };
   }
@@ -45,14 +59,13 @@ export class AuthService {
     try {
       const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || 'refresh_secret') as any;
 
-      const tokenInDB = await RefreshTokenModel.findOne({ token: refreshToken });
-      if (!tokenInDB) return null;
+      const refreshTokenInDB = await RefreshTokenModel.findOne({ token: refreshToken });
+      if (!refreshTokenInDB || refreshTokenInDB.revoked ) return null;
 
       const user = await UserServiceInstance.getUserById(payload.uid);
       if (!user) return null;
 
-      await RefreshTokenModel.deleteOne({ token: refreshToken });
-
+      // CREAMOS LOS NUEVOS JWT DEL REFRESH TOKEN Y ACCESS TOKEN
       const newAccessToken = jwt.sign(
         { uid: user._id, name: user.name, email: user.email },
         process.env.JWT_SECRET || 'default_secret',
@@ -65,15 +78,27 @@ export class AuthService {
         { expiresIn: AuthService.REFRESH_TOKEN_DURATION }
       );
 
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + AuthService.REFRESH_TOKEN_DURATION_DAYS);
+      const refreshTokenExpiresAt = new Date();
+      refreshTokenExpiresAt.setDate(refreshTokenExpiresAt.getDate() + AuthService.REFRESH_TOKEN_DURATION_DAYS);
+
+      const accessTokenExpiresAt = new Date(Date.now() + AuthService.ACCESS_TOKEN_DURATION_MS );
+
+      /// GUARDAMOS EL ACCESS Y REFRESH TOKEN EN BD 
+      await AccessTokenModel.create({
+        userId: user._id,
+        token: newAccessToken,
+        expiresAt: refreshTokenExpiresAt,
+        revoked: false
+      });
 
       await RefreshTokenModel.create({
         userId: user._id,
         token: newRefreshToken,
-        expiresAt
+        expiresAt: accessTokenExpiresAt,
+        revoked: false
       });
-
+      
+      /// RETORNAMOS TODA LA DATA DE AUTENTICACIÓN
       return {
         user: {
           id: user._id,
@@ -88,10 +113,22 @@ export class AuthService {
     }
   }
 
-  async logout(refreshToken: string): Promise<boolean> {
-    const result = await RefreshTokenModel.findOneAndDelete({ token: refreshToken });
-    return !!result;
+  async logout( accessToken: string , refreshToken: string): Promise<boolean> {
+    const refreshTokenInBD = await RefreshTokenModel.findOne({ token: refreshToken });
+    const accessTokenInBD = await AccessTokenModel.findOne( { token: accessToken } );
+    if (refreshTokenInBD) {
+      refreshTokenInBD.revoked = true;
+      await refreshTokenInBD.save();
+    }
+    if (accessTokenInBD) {
+      accessTokenInBD.revoked = true;
+      await accessTokenInBD.save();
+    }
+
+    return true;
   }
+
+  
 }
 
 const AuthServiceInstance = new AuthService();
